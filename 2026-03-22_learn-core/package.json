@@ -1,0 +1,20 @@
+{
+  "name": "2026-03-22_learn-core",
+  "version": "1.0.0",
+  "description": "",
+  "main": "mini-simplenote-listener.js",
+  "scripts": {
+    "test": "node --test",
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@notionhq/client": "^5.14.0",
+    "better-sqlite3": "^12.8.0",
+    "dotenv": "^17.3.1",
+    "simperium": "^1.1.4"
+  }
+}
