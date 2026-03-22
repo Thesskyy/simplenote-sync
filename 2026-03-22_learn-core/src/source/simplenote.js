@@ -104,19 +104,67 @@ function startSimplenoteListener() {
     config.simperiumToken,
   );
 
-  let unauthorizedTriggered = false;
+  let unauthorizedExitTriggered = false;
+  let reconnectScheduled = false;
 
-  client.on("unauthorized", () => {
-    if (unauthorizedTriggered) return;
-    unauthorizedTriggered = true;
+  const scheduleUnauthorizedExit = (reason) => {
+    if (unauthorizedExitTriggered) return;
+    unauthorizedExitTriggered = true;
 
     log.error(
-      `Simperium unauthorized; exiting in ${config.unauthorizedExitDelayMs}ms for supervisor recovery`,
+      `${reason}; exiting in ${config.unauthorizedExitDelayMs}ms for supervisor recovery`,
     );
 
     setTimeout(() => {
       process.exit(1);
     }, config.unauthorizedExitDelayMs);
+  };
+
+  client.on("unauthorized", () => {
+    scheduleUnauthorizedExit("Simperium unauthorized");
+  });
+
+  client.on("connect", () => {
+    reconnectScheduled = false;
+    log.info("Simperium connected");
+  });
+
+  client.on("disconnect", () => {
+    log.warn("Simperium disconnected");
+  });
+
+  client.on("reconnect", (attempt) => {
+    log.warn(`Simperium reconnect attempt: ${attempt}`);
+  });
+
+  const triggerClientReconnect = (reason) => {
+    if (reconnectScheduled || unauthorizedExitTriggered) return;
+    reconnectScheduled = true;
+    log.warn(`Simperium reconnect scheduled: ${reason}`);
+
+    setTimeout(() => {
+      try {
+        if (client.socket && typeof client.socket.close === "function") {
+          client.socket.close();
+        }
+      } catch (_e) {
+        // Ignore socket close errors.
+      }
+
+      try {
+        client.open = false;
+        client.connect();
+      } catch (e) {
+        reconnectScheduled = false;
+        log.error(`Simperium reconnect failed: ${e?.message || e}`);
+      }
+    }, 1000);
+  };
+
+  client.on("error", (err) => {
+    const message = err?.message || String(err);
+    log.warn(`Simperium client error: ${message}`);
+    triggerClientReconnect(message);
   });
 
   const noteBucket = client.bucket("note");
